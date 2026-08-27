@@ -1,7 +1,10 @@
 import { openAddToGroupModal } from "./modal";
+import { mountFloatingButtonAndPanel } from "./panel";
 import { isDarkMode } from "./theme";
 
 console.log("[LinkedIn Group Lister] content script loaded");
+
+mountFloatingButtonAndPanel();
 
 export interface ProfileData {
   name: string | null;

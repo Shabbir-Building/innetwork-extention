@@ -47,6 +47,13 @@ export async function getGroups(): Promise<GroupWithCount[]> {
   }));
 }
 
+export async function getMembersForGroup(groupId: string): Promise<Member[]> {
+  const store = await readStore();
+  return store.members
+    .filter((m) => m.groupId === groupId)
+    .sort((a, b) => b.addedAt - a.addedAt);
+}
+
 export async function createGroup(name: string): Promise<Group> {
   const store = await readStore();
   const group: Group = { id: makeId(), name };
