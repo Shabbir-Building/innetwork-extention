@@ -1,1 +1,26 @@
 /* Styles for elements injected directly into the LinkedIn page (outside any shadow root). */
+
+.lgl-list-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 999px;
+  padding: 7px 16px;
+  margin-left: 8px;
+  border: 1.5px solid #2a5c6b;
+  background: #e8f1f3;
+  color: #2a5c6b;
+  cursor: pointer;
+}
+
+.lgl-list-btn:hover {
+  background: #dcebee;
+}
+
+.lgl-list-btn svg {
+  flex-shrink: 0;
+}
