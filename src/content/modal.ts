@@ -1,15 +1,14 @@
 import type { ProfileData } from "./content";
 import { isDarkMode } from "./theme";
+import {
+  addMemberToGroup,
+  createGroup,
+  findGroupsContainingProfile,
+  getGroups,
+  type GroupWithCount,
+} from "./storage";
 
 const HOST_ID = "lgl-modal-host";
-
-// Step 2: hardcoded groups purely for UI — replaced with real
-// chrome.storage.local data in Step 3.
-const FAKE_GROUPS = [
-  { name: "Recruiters", count: 12 },
-  { name: "Q3 Outreach", count: 7 },
-  { name: "Conference — Madrid", count: 3 },
-];
 
 const MODAL_STYLES = `
   :host {
@@ -26,6 +25,9 @@ const MODAL_STYLES = `
     --shadow: 0 1px 2px rgba(22,35,43,0.06), 0 8px 24px -8px rgba(22,35,43,0.18);
     --overlay-tint: rgba(22, 35, 43, 0.45);
     --on-accent: #ffffff;
+    --warn: #9a5b12;
+    --warn-soft: #fbf0e1;
+    --warn-line: #eedcb8;
   }
 
   :host(.dark) {
@@ -41,6 +43,9 @@ const MODAL_STYLES = `
     --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -8px rgba(0,0,0,0.5);
     --overlay-tint: rgba(0, 0, 0, 0.6);
     --on-accent: #0f1a1d;
+    --warn: #e3a85c;
+    --warn-soft: #332617;
+    --warn-line: #4a3820;
   }
 
   * {
@@ -59,8 +64,8 @@ const MODAL_STYLES = `
   }
 
   .card {
-    width: 340px;
-    max-height: 80vh;
+    width: 420px;
+    max-height: 85vh;
     background: var(--paper);
     border: 1px solid var(--line);
     border-radius: 10px;
@@ -74,7 +79,7 @@ const MODAL_STYLES = `
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 16px 18px;
+    padding: 16px 22px;
     border-bottom: 1px solid var(--line);
   }
 
@@ -123,8 +128,57 @@ const MODAL_STYLES = `
     background: var(--canvas);
   }
 
+  .loading-state {
+    padding: 32px 22px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  .warn-box {
+    margin: 14px 22px 0;
+    background: var(--warn-soft);
+    border: 1px solid var(--warn-line);
+    border-radius: 8px;
+    padding: 12px 13px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .warn-box svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--warn);
+    margin-top: 1px;
+  }
+
+  .warn-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--warn);
+  }
+
+  .warn-detail {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 3px;
+    line-height: 1.5;
+  }
+
+  .warn-detail .chip {
+    display: inline-block;
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 10.5px;
+    background: var(--paper);
+    border: 1px solid var(--warn-line);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin: 0 2px;
+  }
+
   .group-list {
-    padding: 14px 18px 6px;
+    padding: 14px 22px 6px;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -135,7 +189,7 @@ const MODAL_STYLES = `
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 9px 10px;
+    padding: 10px 12px;
     border-radius: 7px;
     border: 1px solid transparent;
     cursor: pointer;
@@ -210,7 +264,7 @@ const MODAL_STYLES = `
   }
 
   .new-group-row {
-    margin: 6px 18px 16px;
+    margin: 6px 22px 16px;
     display: flex;
     gap: 8px;
   }
@@ -258,7 +312,7 @@ const MODAL_STYLES = `
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    padding: 14px 18px;
+    padding: 14px 22px;
     border-top: 1px solid var(--line);
     background: var(--canvas);
   }
@@ -293,24 +347,32 @@ const MODAL_STYLES = `
   }
 `;
 
-interface Group {
-  name: string;
-  count: number;
-}
-
-function buildModal(
+function buildLoadingModal(
   profile: ProfileData,
-  groups: Group[],
-  onClose: () => void
-): DocumentFragment {
-  const fragment = document.createDocumentFragment();
-
+  onClose: () => void,
+): { overlay: HTMLDivElement; card: HTMLDivElement } {
   const overlay = document.createElement("div");
   overlay.className = "overlay";
 
   const card = document.createElement("div");
   card.className = "card";
 
+  card.append(buildHead(profile, onClose));
+
+  const loading = document.createElement("div");
+  loading.className = "loading-state";
+  loading.textContent = "Loading your lists…";
+  card.appendChild(loading);
+
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) onClose();
+  });
+
+  return { overlay, card };
+}
+
+function buildHead(profile: ProfileData, onClose: () => void): HTMLDivElement {
   const head = document.createElement("div");
   head.className = "head";
 
@@ -339,11 +401,76 @@ function buildModal(
   closeBtn.addEventListener("click", onClose);
 
   head.append(avatar, headText, closeBtn);
+  return head;
+}
+
+function buildWarnBox(duplicateGroups: GroupWithCount[]): HTMLDivElement {
+  const box = document.createElement("div");
+  box.className = "warn-box";
+
+  const icon = document.createElement("div");
+  icon.innerHTML =
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5l7 12.5H1L8 1.5z"/><path d="M8 6.3v3.2M8 11.6h.01"/></svg>';
+
+  const text = document.createElement("div");
+  const title = document.createElement("div");
+  title.className = "warn-title";
+  title.textContent =
+    duplicateGroups.length === 1
+      ? "Already on one list"
+      : `Already on ${duplicateGroups.length} lists`;
+
+  const detail = document.createElement("div");
+  detail.className = "warn-detail";
+  detail.append("This profile is already saved to ");
+  duplicateGroups.forEach((group, index) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = group.name;
+    detail.appendChild(chip);
+    if (index < duplicateGroups.length - 2) {
+      detail.append(", ");
+    } else if (index === duplicateGroups.length - 2) {
+      detail.append(" and ");
+    }
+  });
+  detail.append(". Adding to another list won't remove it from those.");
+
+  text.append(title, detail);
+  box.append(icon.firstElementChild as Node, text);
+  return box;
+}
+
+function buildModal(
+  profile: ProfileData,
+  initialGroups: GroupWithCount[],
+  duplicateGroups: GroupWithCount[],
+  onClose: () => void,
+): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  const duplicateGroupIds = new Set(duplicateGroups.map((g) => g.id));
+
+  const overlay = document.createElement("div");
+  overlay.className = "overlay";
+
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const head = buildHead(profile, onClose);
+
+  let groups = initialGroups;
+
+  if (duplicateGroups.length > 0) {
+    card.appendChild(buildWarnBox(duplicateGroups));
+  }
 
   const groupList = document.createElement("div");
   groupList.className = "group-list";
 
-  let selectedIndex: number | null = groups.length > 0 ? 0 : null;
+  let selectedId: string | null =
+    groups.find((g) => !duplicateGroupIds.has(g.id))?.id ??
+    groups[0]?.id ??
+    null;
 
   function renderGroupRows(): void {
     groupList.innerHTML = "";
@@ -356,11 +483,11 @@ function buildModal(
       return;
     }
 
-    groups.forEach((group, index) => {
+    groups.forEach((group) => {
       const row = document.createElement("button");
       row.type = "button";
       row.className =
-        index === selectedIndex ? "group-row selected" : "group-row";
+        group.id === selectedId ? "group-row selected" : "group-row";
 
       const radio = document.createElement("div");
       radio.className = "radio";
@@ -370,15 +497,17 @@ function buildModal(
 
       const name = document.createElement("div");
       name.className = "gname";
-      name.textContent = group.name;
+      name.textContent = duplicateGroupIds.has(group.id)
+        ? `${group.name} (already added)`
+        : group.name;
 
       const count = document.createElement("div");
       count.className = "gcount";
-      count.textContent = String(group.count);
+      count.textContent = String(group.memberCount);
 
       row.append(radio, name, count);
       row.addEventListener("click", () => {
-        selectedIndex = index;
+        selectedId = group.id;
         renderGroupRows();
         updateSaveState();
       });
@@ -396,14 +525,20 @@ function buildModal(
   plusBtn.type = "button";
   plusBtn.className = "plus-btn";
   plusBtn.textContent = "+ Create";
-  plusBtn.addEventListener("click", () => {
+  plusBtn.addEventListener("click", async () => {
     const name = newGroupInput.value.trim();
     if (!name) return;
-    groups.push({ name, count: 0 });
-    selectedIndex = groups.length - 1;
-    newGroupInput.value = "";
-    renderGroupRows();
-    updateSaveState();
+    plusBtn.disabled = true;
+    try {
+      const created = await createGroup(name);
+      groups = await getGroups();
+      selectedId = created.id;
+      newGroupInput.value = "";
+      renderGroupRows();
+      updateSaveState();
+    } finally {
+      plusBtn.disabled = false;
+    }
   });
   newGroupRow.append(newGroupInput, plusBtn);
 
@@ -418,22 +553,23 @@ function buildModal(
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
   saveBtn.className = "btn primary";
-  saveBtn.textContent = "Save to list";
-  saveBtn.addEventListener("click", () => {
-    if (selectedIndex === null) return;
-    const target = groups[selectedIndex];
-    if (!target) return;
-    // Step 2 is UI-only — no persistence yet. Step 3 wires this to
-    // chrome.storage.local.
-    console.log("[LinkedIn Group Lister] would save profile to group:", {
-      profile,
-      group: target.name,
-    });
-    onClose();
+  saveBtn.textContent =
+    duplicateGroups.length > 0 ? "Add anyway" : "Save to list";
+  saveBtn.addEventListener("click", async () => {
+    if (selectedId === null) return;
+    saveBtn.disabled = true;
+    try {
+      await addMemberToGroup(selectedId, profile);
+      onClose();
+    } finally {
+      saveBtn.disabled = false;
+    }
   });
 
   function updateSaveState(): void {
-    saveBtn.disabled = selectedIndex === null;
+    const selectedIsDuplicate =
+      selectedId !== null && duplicateGroupIds.has(selectedId);
+    saveBtn.disabled = selectedId === null || selectedIsDuplicate;
   }
 
   foot.append(cancelBtn, saveBtn);
@@ -473,9 +609,21 @@ export function openAddToGroupModal(profile: ProfileData): void {
     if (event.key === "Escape") close();
   }
 
-  const groups = FAKE_GROUPS.map((g) => ({ ...g }));
-  shadow.appendChild(buildModal(profile, groups, close));
-
   document.addEventListener("keydown", handleKeydown);
   document.body.appendChild(host);
+
+  const { overlay: loadingOverlay } = buildLoadingModal(profile, close);
+  shadow.appendChild(loadingOverlay);
+
+  Promise.all([getGroups(), findGroupsContainingProfile(profile.profileUrl)])
+    .then(([groups, duplicates]) => {
+      if (!host.isConnected) return;
+      loadingOverlay.remove();
+      const duplicateIds = new Set(duplicates.map((g) => g.id));
+      const duplicateGroups = groups.filter((g) => duplicateIds.has(g.id));
+      shadow.appendChild(buildModal(profile, groups, duplicateGroups, close));
+    })
+    .catch((error) => {
+      console.error("[LinkedIn Group Lister] failed to load groups:", error);
+    });
 }
