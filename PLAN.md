@@ -19,6 +19,10 @@ profile pages and an in-page right-side panel to browse groups.
 - **Storage**: Google Sheets is the source of truth for groups + members. `chrome.storage.local`
   holds config (Sheet ID) and the session-scoped OAuth token — nothing sensitive touches
   `chrome.storage.sync` or cookies.
+- **Duplicate check**: before adding a profile to a group, check **every group's members** (not just
+  the target group) by **profile URL**. If the profile already exists anywhere, show a warning naming
+  which group(s) it's already in — this is a warning, not a hard block, so you can still confirm and
+  add it to the new group too (a person can legitimately belong to more than one group).
 
 ## Clarified: "side panel" means an in-page panel, not Chrome's native Side Panel API
 
@@ -86,9 +90,14 @@ load into Chrome and click on. We will NOT move to the next step until the curre
 
 ### Step 3 — Local persistence (chrome.storage.local only, no Sheets yet)
 - Wire the modal to real `chrome.storage.local`: create groups, list groups, add the
-  current profile (name/photo/url) to a chosen group, dedupe if already added.
-- **Outcome**: fully working group-assignment flow, persisted locally. This alone is usable even
-  before Sheets exists.
+  current profile (name/photo/url) to a chosen group.
+- **Duplicate check**: before saving, scan members across *all* groups by `profileUrl`. If found,
+  show an inline warning in the modal: e.g. "Already in: Recruiters, Q3 Leads" — with an explicit
+  "Add anyway" confirm and a "Cancel" option, rather than silently blocking or silently allowing.
+  If the profile is already in the *target* group specifically, just block that duplicate outright
+  (no reason to store the same person twice in one group).
+- **Outcome**: fully working group-assignment flow, persisted locally, with duplicate warnings. This
+  alone is usable even before Sheets exists.
 
 ### Step 4 — Floating button + in-page right panel: browse groups
 - Content script injects a small floating button, fixed to the bottom-right of the page (persists
@@ -120,13 +129,18 @@ load into Chrome and click on. We will NOT move to the next step until the curre
 ### Step 7 — Google Sheets integration: write
 - "New group" and "Add profile to group" now call Sheets API `values.append` / batch update instead
   of local storage.
+- **Duplicate check now runs against the Sheet's `Members` tab** (the real source of truth) instead
+  of local storage — same behavior as Step 3: warn with the group name(s) already containing that
+  `profileUrl`, block exact same-group duplicates outright, allow "Add anyway" across different
+  groups. This also naturally catches duplicates added from another device/browser session, since the
+  Sheet is now authoritative.
 - Handle the weekly re-auth prompt gracefully (detect 401, re-trigger `getAuthToken`).
 - **Outcome**: full round-trip — add from LinkedIn profile → appears in your Google Sheet → visible in
-  the right panel.
+  the right panel, with duplicate warnings backed by the real database.
 
 ### Step 8 — Polish pass
-- Loading/error states (API failures, rate limits, offline), duplicate-profile handling across
-  devices, delete group / remove member, basic empty states, icon design.
+- Loading/error states (API failures, rate limits, offline), delete group / remove member, basic
+  empty states, icon design.
 - **Outcome**: extension feels solid for daily personal use.
 
 ---
