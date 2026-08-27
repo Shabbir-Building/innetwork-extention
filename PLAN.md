@@ -4,6 +4,21 @@ A personal Chrome extension (Manifest V3, unpacked/dev-mode install) that lets y
 profiles into named lists ("groups"), stored in a Google Sheet, with a "List" button injected on
 profile pages and an in-page right-side panel to browse groups.
 
+## Working conventions
+
+- **Commit messages describe the feature shipped, not the step number.** E.g. "Add List button to
+  profile pages", not "Step 1". Step numbers here are just our own roadmap markers, not something
+  that belongs in git history.
+- **Every feature gets a doc file in `docs/`.** One markdown file per feature (e.g.
+  `docs/list-button.md`, `docs/add-to-group-modal.md`, `docs/google-sheets-sync.md`), each containing
+  two short sections in the same file:
+  - **Overview** — plain-language explanation of what the feature does and why, written for a
+    non-technical reader or a new dev with zero context on this project.
+  - **Technical notes** — the actual implementation: files touched, key functions/logic, any
+    gotchas (e.g. selector fragility, API quirks) — written for a dev who needs to modify it later.
+  Kept short on purpose — a quick orientation doc, not exhaustive documentation. This doc is written
+  as part of finishing the feature, not deferred to a later cleanup pass.
+
 ## Decisions locked in (from Q&A)
 
 - **Auth**: Google OAuth via `chrome.identity.getAuthToken` (not Apps Script, not a service account).
@@ -65,12 +80,15 @@ We build incrementally — one small, testable feature per step. Each step ends 
 load into Chrome and click on. We will NOT move to the next step until the current one works for you.
 
 ### Step 0 — Scaffolding
-- `manifest.json` (MV3), icons (placeholder), folder structure (`content/` for the injected script,
-  UI, and styles; `background/` for the service worker), empty background service worker, empty
-  content script matched to `linkedin.com/*` (needed on all pages, not just `/in/*`, since the
-  floating button + right panel should be available site-wide).
-- Load unpacked into Chrome, confirm it appears with no errors in `chrome://extensions`.
-- **Outcome**: extension installs, no functionality yet.
+- `extension/manifest.json` (MV3), icons (placeholder), folder structure (`extension/content/` for
+  the injected script, UI, and styles; `extension/background/` for the service worker), empty
+  background service worker, empty content script matched to `linkedin.com/*` (needed on all pages,
+  not just `/in/*`, since the floating button + right panel should be available site-wide). A
+  top-level `docs/` folder for the per-feature docs described above.
+- Load unpacked into Chrome (pointing at the `extension/` folder), confirm it appears with no errors
+  in `chrome://extensions`.
+- **Outcome**: extension installs, no functionality yet. No doc file needed — nothing user-facing was
+  built yet.
 
 ### Step 1 — Inject the "List" button on profile pages
 - Content script detects profile pages, uses `MutationObserver` (scoped to the action-button
@@ -79,14 +97,15 @@ load into Chrome and click on. We will NOT move to the next step until the curre
 - Button click just `console.log`s the detected name/photo/URL for now — proves scraping works
   before we build UI.
 - **Outcome**: visiting any profile shows a working "List" button; clicking it logs correct profile
-  data to the console.
+  data to the console. Add `docs/list-button.md`.
 
 ### Step 2 — In-page modal (no data persistence yet)
 - Clicking "List" opens a modal overlay (shadow DOM to avoid LinkedIn CSS collisions) styled
   minimally.
 - Modal shows a hardcoded fake list of groups + a "+ New group" input, purely as UI — no storage
   wired up.
-- **Outcome**: modal opens/closes correctly, matches basic UX you described, still no real data.
+- **Outcome**: modal opens/closes correctly, matches basic UX you described, still no real data. Add
+  `docs/add-to-group-modal.md`.
 
 ### Step 3 — Local persistence (chrome.storage.local only, no Sheets yet)
 - Wire the modal to real `chrome.storage.local`: create groups, list groups, add the
@@ -97,7 +116,9 @@ load into Chrome and click on. We will NOT move to the next step until the curre
   If the profile is already in the *target* group specifically, just block that duplicate outright
   (no reason to store the same person twice in one group).
 - **Outcome**: fully working group-assignment flow, persisted locally, with duplicate warnings. This
-  alone is usable even before Sheets exists.
+  alone is usable even before Sheets exists. Update `docs/add-to-group-modal.md` with the real
+  persistence + duplicate-check behavior, and add `docs/duplicate-check.md` since it's a distinct
+  enough feature (cross-group scan, warning UX, override) to warrant its own doc.
 
 ### Step 4 — Floating button + in-page right panel: browse groups
 - Content script injects a small floating button, fixed to the bottom-right of the page (persists
@@ -107,14 +128,16 @@ load into Chrome and click on. We will NOT move to the next step until the curre
 - Click a group → panel drills into its member list (photo, name, link back to profile URL), with a
   way to go back to the group list.
 - **Outcome**: floating button + right panel fully functional against local storage, on every
-  LinkedIn page (not just profile pages).
+  LinkedIn page (not just profile pages). Add `docs/groups-panel.md`.
 
 ### Step 5 — Google Cloud OAuth setup (guided, manual steps on your end)
 - I'll give you exact click-by-click instructions: create a Google Cloud project, enable the Google
   Sheets API, configure the OAuth consent screen (Testing mode, you as test user), create an OAuth
   Client ID of type "Chrome Extension" using your extension's fixed ID.
 - We generate a fixed `key` for `manifest.json` so the extension ID never changes.
-- **Outcome**: you have a Client ID; nothing in the extension changes yet.
+- **Outcome**: you have a Client ID; nothing in the extension changes yet. Add
+  `docs/google-oauth-setup.md` — mainly the non-technical half (how to redo this setup, where the
+  Client ID lives), since this step has no code to document technically.
 
 ### Step 6 — Google Sheets integration: connect + read
 - First-run flow: the right panel checks `chrome.storage.local` for a saved Sheet ID; if missing,
@@ -124,7 +147,8 @@ load into Chrome and click on. We will NOT move to the next step until the curre
   profileUrl, addedAt]).
 - Read existing groups/members from the Sheet into the right panel (replacing local-storage reads).
 - **Outcome**: right panel reflects real Sheet contents; local storage now only caches Sheet ID +
-  token, not group data.
+  token, not group data. Add `docs/google-sheets-sync.md` covering the sheet schema and the
+  connect/read flow.
 
 ### Step 7 — Google Sheets integration: write
 - "New group" and "Add profile to group" now call Sheets API `values.append` / batch update instead
@@ -136,12 +160,15 @@ load into Chrome and click on. We will NOT move to the next step until the curre
   Sheet is now authoritative.
 - Handle the weekly re-auth prompt gracefully (detect 401, re-trigger `getAuthToken`).
 - **Outcome**: full round-trip — add from LinkedIn profile → appears in your Google Sheet → visible in
-  the right panel, with duplicate warnings backed by the real database.
+  the right panel, with duplicate warnings backed by the real database. Update
+  `docs/google-sheets-sync.md` with the write path, and update `docs/duplicate-check.md` to reflect
+  the Sheet-backed check replacing the local-storage one.
 
 ### Step 8 — Polish pass
 - Loading/error states (API failures, rate limits, offline), delete group / remove member, basic
   empty states, icon design.
-- **Outcome**: extension feels solid for daily personal use.
+- **Outcome**: extension feels solid for daily personal use. Sweep all `docs/*.md` files for
+  accuracy against the finished behavior.
 
 ---
 
