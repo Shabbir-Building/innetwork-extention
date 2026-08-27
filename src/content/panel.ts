@@ -45,7 +45,7 @@ const FAB_STYLES = `
 
   .fab {
     position: fixed;
-    right: 20px;
+    left: 20px;
     bottom: 20px;
     width: 46px;
     height: 46px;
@@ -81,13 +81,13 @@ const PANEL_STYLES = `
   .panel {
     position: fixed;
     top: 0;
-    right: 0;
+    left: 0;
     bottom: 0;
-    width: 380px;
+    width: 275px;
     max-width: 90vw;
     background: var(--paper);
-    border-left: 1px solid var(--line);
-    box-shadow: -8px 0 24px -12px rgba(22, 35, 43, 0.25);
+    border-right: 1px solid var(--line);
+    box-shadow: 8px 0 24px -12px rgba(22, 35, 43, 0.25);
     display: flex;
     flex-direction: column;
     z-index: 2147482950;
@@ -106,18 +106,9 @@ const PANEL_STYLES = `
 
   .panel-head-text { min-width: 0; }
 
-  .eyebrow {
-    font-family: ui-monospace, "SF Mono", monospace;
-    font-size: 10px;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
   .title {
     font-size: 18px;
     font-weight: 600;
-    margin-top: 4px;
     color: var(--ink);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -306,7 +297,7 @@ function createFab(onClick: () => void): HTMLElement {
   button.setAttribute("aria-label", "Open your lists");
   button.innerHTML = svgIcon(
     '<rect x="3" y="4" width="14" height="12" rx="2.5"></rect><path d="M3 8.5h14M7 4v4"></path>',
-    "0 0 20 20"
+    "0 0 20 20",
   );
   button.addEventListener("click", onClick);
   shadow.appendChild(button);
@@ -320,10 +311,10 @@ function renderGroupsView(
   root: HTMLElement,
   groups: GroupWithCount[],
   onSelectGroup: (group: GroupWithCount) => void,
-  onClose: () => void
+  onClose: () => void,
 ): void {
   root.innerHTML = "";
-  root.appendChild(buildPanelHead("Your lists", "LinkedIn Network", onClose));
+  root.appendChild(buildPanelHead("LinkedIn Network", onClose));
 
   const scroll = document.createElement("div");
   scroll.className = "scroll-area";
@@ -362,15 +353,17 @@ function renderMembersView(
   group: GroupWithCount,
   members: Member[] | null,
   onBack: () => void,
-  onClose: () => void
+  onClose: () => void,
 ): void {
   root.innerHTML = "";
-  root.appendChild(buildPanelHead("List", group.name, onClose));
+  root.appendChild(buildPanelHead(group.name, onClose));
 
   const back = document.createElement("button");
   back.type = "button";
   back.className = "back-link";
-  back.innerHTML = svgIcon('<path d="M7.5 2.5L3 6l4.5 3.5"></path>', "0 0 12 12") + "All groups";
+  back.innerHTML =
+    svgIcon('<path d="M7.5 2.5L3 6l4.5 3.5"></path>', "0 0 12 12") +
+    "All groups";
   back.addEventListener("click", onBack);
   root.appendChild(back);
 
@@ -412,7 +405,7 @@ function renderMembersView(
 
       const link = document.createElement("div");
       link.innerHTML = svgIcon(
-        '<path d="M6.5 9.5l3-3M8 3.5h4.5V8M12.5 3.5L7 9"></path>'
+        '<path d="M6.5 9.5l3-3M8 3.5h4.5V8M12.5 3.5L7 9"></path>',
       );
       link.className = "m-link";
 
@@ -449,23 +442,16 @@ function createPanel(): {
   return { host, scrollRoot: contentRoot };
 }
 
-function buildPanelHead(
-  eyebrowText: string,
-  titleText: string,
-  onClose: () => void
-): HTMLElement {
+function buildPanelHead(titleText: string, onClose: () => void): HTMLElement {
   const head = document.createElement("div");
   head.className = "panel-head";
 
   const headText = document.createElement("div");
   headText.className = "panel-head-text";
-  const eyebrow = document.createElement("div");
-  eyebrow.className = "eyebrow";
-  eyebrow.textContent = eyebrowText;
   const title = document.createElement("div");
   title.className = "title";
   title.textContent = titleText;
-  headText.append(eyebrow, title);
+  headText.append(title);
 
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";

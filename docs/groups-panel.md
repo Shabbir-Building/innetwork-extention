@@ -2,8 +2,8 @@
 
 ## Overview
 
-A small round button sits in the bottom-right corner of every LinkedIn page. Clicking it opens a
-panel sliding in from the right edge, listing all your saved lists with how many people are in each.
+A small round button sits in the bottom-left corner of every LinkedIn page. Clicking it opens a
+panel sliding in from the left edge, listing all your saved lists with how many people are in each.
 Click a list to see who's in it — their photo, name, and a link that opens their LinkedIn profile in
 a new tab. Click "All groups" to go back, or close the panel with the × or Escape. Clicking the
 floating button again while the panel is open also closes it.
