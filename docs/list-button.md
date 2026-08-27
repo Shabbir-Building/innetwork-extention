@@ -4,9 +4,8 @@
 
 When you visit someone's LinkedIn profile (a page like `linkedin.com/in/their-name`), the extension
 adds a small "List" button next to LinkedIn's own Message/Follow/More buttons. Clicking it captures
-that person's name, photo, and profile link. Right now that's all it does — the button just prints
-the captured data to the browser's developer console, as a checkpoint before we build the actual
-"add to group" UI on top of it in the next step.
+that person's name, photo, and profile link, then opens the add-to-group popup (see
+`docs/add-to-group-modal.md`) so you can save them to a list.
 
 ## Technical notes
 
@@ -29,10 +28,11 @@ the captured data to the browser's developer console, as a checkpoint before we 
   and starts from `all: unset` to strip LinkedIn's inherited styling first, guaranteeing our exact
   colors/shape render regardless of what LinkedIn's stylesheet does.
 - **Dark mode**: LinkedIn's dark theme is an independent in-app setting (not tied to OS
-  `prefers-color-scheme`). Detected via `document.body.getAttribute('data-color-scheme') === 'dark'`
-  (LinkedIn's modern surfaces) with a `theme--dark` class fallback (older pages), re-checked on every
-  navigation since the button is recreated each time. A `.lgl-dark` class swaps to darker tokens
-  matching the design mockup's dark palette.
+  `prefers-color-scheme`). Detected via `isDarkMode()` in `src/content/theme.ts` (shared with the
+  modal) — checks `document.body.getAttribute('data-color-scheme') === 'dark'` (LinkedIn's modern
+  surfaces) with a `theme--dark` class fallback (older pages), re-checked on every navigation since
+  the button is recreated each time. A `.lgl-dark` class swaps to darker tokens matching the design
+  mockup's dark palette.
 - **Sizing**: matched to LinkedIn's real Message-button pill via live DevTools measurement —
   `padding: 4px 12px`, `border-radius: 24px`, `font-size: 14px`. (LinkedIn's own buttons nest the
   visible pill inside a larger invisible hit-target, which makes naive outer-box comparisons

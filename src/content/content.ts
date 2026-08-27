@@ -1,6 +1,9 @@
+import { openAddToGroupModal } from "./modal";
+import { isDarkMode } from "./theme";
+
 console.log("[LinkedIn Group Lister] content script loaded");
 
-interface ProfileData {
+export interface ProfileData {
   name: string | null;
   photoUrl: string | null;
   profileUrl: string;
@@ -11,18 +14,6 @@ const PROFILE_URL_PATTERN = /^https:\/\/www\.linkedin\.com\/in\/[^/?#]+/;
 
 function isProfilePage(): boolean {
   return PROFILE_URL_PATTERN.test(window.location.href);
-}
-
-function isDarkMode(): boolean {
-  // LinkedIn's modern surfaces (feed/profile/messaging) mark theme via a
-  // data attribute on <body>; older Ember-based pages use a class on
-  // <html>/<body> instead. Check both since either can apply depending on
-  // which surface rendered. Not tied to prefers-color-scheme: LinkedIn's
-  // dark mode is an independent in-app setting (Device/Dark/Light).
-  if (document.body.getAttribute("data-color-scheme") === "dark") return true;
-  if (document.documentElement.classList.contains("theme--dark")) return true;
-  if (document.body.classList.contains("theme--dark")) return true;
-  return false;
 }
 
 function getCanonicalProfileUrl(): string {
@@ -116,7 +107,7 @@ function createListButton(): HTMLButtonElement {
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14"><rect x="2" y="3" width="12" height="10" rx="2"></rect><path d="M5 6.5h6M5 9.5h4"></path></svg><span>List</span>';
   button.addEventListener("click", () => {
     const data = extractProfileData();
-    console.log("[LinkedIn Group Lister] profile data:", data);
+    openAddToGroupModal(data);
   });
   return button;
 }
