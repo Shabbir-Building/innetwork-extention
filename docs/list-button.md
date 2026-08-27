@@ -19,9 +19,24 @@ the captured data to the browser's developer console, as a checkpoint before we 
   detect route changes, removing and re-injecting the button each time. A `MutationObserver` on
   `document.body` provides a second trigger, since the button-row DOM can render asynchronously after
   the URL has already changed.
-- **Button placement**: found by scanning `main button` elements for one whose text or `aria-label`
-  starts with "message", "follow", "connect", or "more" (case-insensitive), then appending our button
-  into that button's parent container.
+- **Button placement**: scans `main button` elements for ones whose text or `aria-label` starts with
+  "message", "follow", "connect", or "more" (case-insensitive). LinkedIn sometimes wraps each action
+  button in its own container, so a single matched button's direct parent isn't necessarily the
+  shared row — we find two matched buttons and walk up to their common ancestor, which is the actual
+  flex row, and append there.
+- **Style isolation**: the button is injected directly into LinkedIn's DOM (no shadow root), so
+  LinkedIn's own button styles can outweigh ours in the cascade. Every visual property is `!important`
+  and starts from `all: unset` to strip LinkedIn's inherited styling first, guaranteeing our exact
+  colors/shape render regardless of what LinkedIn's stylesheet does.
+- **Dark mode**: LinkedIn's dark theme is an independent in-app setting (not tied to OS
+  `prefers-color-scheme`). Detected via `document.body.getAttribute('data-color-scheme') === 'dark'`
+  (LinkedIn's modern surfaces) with a `theme--dark` class fallback (older pages), re-checked on every
+  navigation since the button is recreated each time. A `.lgl-dark` class swaps to darker tokens
+  matching the design mockup's dark palette.
+- **Sizing**: matched to LinkedIn's real Message-button pill via live DevTools measurement —
+  `padding: 4px 12px`, `border-radius: 24px`, `font-size: 14px`. (LinkedIn's own buttons nest the
+  visible pill inside a larger invisible hit-target, which makes naive outer-box comparisons
+  misleading — the true pill is a rounded child span, not the outer clickable element.)
 - **Data extraction — important gotcha**: LinkedIn's CSS classes are fully hashed/generated (e.g.
   `_89d1f328`) and carry no semantic meaning — confirmed by live inspection, not assumption. Nothing
   here is selected by class name:

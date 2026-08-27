@@ -13,6 +13,18 @@ function isProfilePage(): boolean {
   return PROFILE_URL_PATTERN.test(window.location.href);
 }
 
+function isDarkMode(): boolean {
+  // LinkedIn's modern surfaces (feed/profile/messaging) mark theme via a
+  // data attribute on <body>; older Ember-based pages use a class on
+  // <html>/<body> instead. Check both since either can apply depending on
+  // which surface rendered. Not tied to prefers-color-scheme: LinkedIn's
+  // dark mode is an independent in-app setting (Device/Dark/Light).
+  if (document.body.getAttribute("data-color-scheme") === "dark") return true;
+  if (document.documentElement.classList.contains("theme--dark")) return true;
+  if (document.body.classList.contains("theme--dark")) return true;
+  return false;
+}
+
 function getCanonicalProfileUrl(): string {
   const match = window.location.href.match(PROFILE_URL_PATTERN);
   return match ? match[0] : window.location.href;
@@ -59,26 +71,47 @@ function extractProfileData(): ProfileData {
   };
 }
 
-function findActionButtonRow(): HTMLElement | null {
+function findActionButtons(): HTMLButtonElement[] {
   const labels = ["message", "follow", "connect", "more"];
   const buttons = Array.from(
     document.querySelectorAll<HTMLButtonElement>("main button")
   );
-  const actionButton = buttons.find((btn) => {
+  return buttons.filter((btn) => {
     const text = (btn.textContent || "").trim().toLowerCase();
     const ariaLabel = (btn.getAttribute("aria-label") || "").toLowerCase();
     return labels.some(
       (label) => text.startsWith(label) || ariaLabel.startsWith(label)
     );
   });
-  return actionButton ? actionButton.parentElement : null;
+}
+
+// LinkedIn sometimes wraps each action button in its own container, so the
+// direct parent of a single button isn't necessarily the shared row. Walk up
+// from two matched buttons until we find their common ancestor — that's the
+// actual flex row we want to append into.
+function findActionButtonRow(): HTMLElement | null {
+  const actionButtons = findActionButtons();
+  if (actionButtons.length === 0) return null;
+
+  const first = actionButtons[0];
+  if (!first) return null;
+  if (actionButtons.length === 1) return first.parentElement;
+
+  const second = actionButtons[1];
+  if (!second) return first.parentElement;
+
+  let ancestor: HTMLElement | null = first.parentElement;
+  while (ancestor && !ancestor.contains(second)) {
+    ancestor = ancestor.parentElement;
+  }
+  return ancestor ?? first.parentElement;
 }
 
 function createListButton(): HTMLButtonElement {
   const button = document.createElement("button");
   button.id = LIST_BUTTON_ID;
   button.type = "button";
-  button.className = "lgl-list-btn";
+  button.className = isDarkMode() ? "lgl-list-btn lgl-dark" : "lgl-list-btn";
   button.innerHTML =
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14"><rect x="2" y="3" width="12" height="10" rx="2"></rect><path d="M5 6.5h6M5 9.5h4"></path></svg><span>List</span>';
   button.addEventListener("click", () => {
