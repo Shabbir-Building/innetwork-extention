@@ -1,37 +1,43 @@
 console.log("[LinkedIn Group Lister] content script loaded");
 
+interface ProfileData {
+  name: string | null;
+  photoUrl: string | null;
+  profileUrl: string;
+}
+
 const LIST_BUTTON_ID = "lgl-list-button";
 const PROFILE_URL_PATTERN = /^https:\/\/www\.linkedin\.com\/in\/[^/?#]+/;
 
-function isProfilePage() {
+function isProfilePage(): boolean {
   return PROFILE_URL_PATTERN.test(window.location.href);
 }
 
-function getCanonicalProfileUrl() {
+function getCanonicalProfileUrl(): string {
   const match = window.location.href.match(PROFILE_URL_PATTERN);
   return match ? match[0] : window.location.href;
 }
 
-function getProfileName() {
+function getProfileName(): string | null {
   // LinkedIn's DOM classes are fully hashed and carry no semantic meaning, so
   // we anchor on <title> ("{Name} | LinkedIn") instead of any element class.
-  const title = document.title.split("|")[0].trim();
+  const title = (document.title.split("|")[0] ?? "").trim();
   return title || null;
 }
 
-function getProfilePhotoUrl() {
+function getProfilePhotoUrl(): string | null {
   // No stable class survives LinkedIn's hashing, so we pick the profile photo
   // structurally: the largest roughly-square image in the top portion of the
   // page. Cover photos are wide/short; the profile photo is square.
-  const candidates = Array.from(document.querySelectorAll("main img")).filter(
-    (img) => {
-      const w = img.naturalWidth || img.width;
-      const h = img.naturalHeight || img.height;
-      if (!w || !h) return false;
-      const aspectRatio = w / h;
-      return w >= 60 && aspectRatio > 0.85 && aspectRatio < 1.15;
-    }
-  );
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLImageElement>("main img")
+  ).filter((img) => {
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) return false;
+    const aspectRatio = w / h;
+    return w >= 60 && aspectRatio > 0.85 && aspectRatio < 1.15;
+  });
 
   if (candidates.length === 0) return null;
 
@@ -41,10 +47,11 @@ function getProfilePhotoUrl() {
     return areaB - areaA;
   });
 
-  return candidates[0].src;
+  const best = candidates[0];
+  return best ? best.src : null;
 }
 
-function extractProfileData() {
+function extractProfileData(): ProfileData {
   return {
     name: getProfileName(),
     photoUrl: getProfilePhotoUrl(),
@@ -52,9 +59,11 @@ function extractProfileData() {
   };
 }
 
-function findActionButtonRow() {
+function findActionButtonRow(): HTMLElement | null {
   const labels = ["message", "follow", "connect", "more"];
-  const buttons = Array.from(document.querySelectorAll("main button"));
+  const buttons = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("main button")
+  );
   const actionButton = buttons.find((btn) => {
     const text = (btn.textContent || "").trim().toLowerCase();
     const ariaLabel = (btn.getAttribute("aria-label") || "").toLowerCase();
@@ -65,7 +74,7 @@ function findActionButtonRow() {
   return actionButton ? actionButton.parentElement : null;
 }
 
-function createListButton() {
+function createListButton(): HTMLButtonElement {
   const button = document.createElement("button");
   button.id = LIST_BUTTON_ID;
   button.type = "button";
@@ -79,7 +88,7 @@ function createListButton() {
   return button;
 }
 
-function injectListButton() {
+function injectListButton(): void {
   if (!isProfilePage()) return;
   if (document.getElementById(LIST_BUTTON_ID)) return;
 
@@ -89,7 +98,7 @@ function injectListButton() {
   row.appendChild(createListButton());
 }
 
-function removeListButton() {
+function removeListButton(): void {
   const existing = document.getElementById(LIST_BUTTON_ID);
   if (existing) existing.remove();
 }
@@ -102,7 +111,7 @@ const observer = new MutationObserver(() => {
 
 observer.observe(document.body, { childList: true, subtree: true });
 
-function handleNavigation() {
+function handleNavigation(): void {
   removeListButton();
   if (isProfilePage()) {
     injectListButton();
@@ -110,13 +119,19 @@ function handleNavigation() {
 }
 
 const originalPushState = history.pushState;
-history.pushState = function (...args) {
+history.pushState = function (
+  this: History,
+  ...args: Parameters<History["pushState"]>
+) {
   originalPushState.apply(this, args);
   handleNavigation();
 };
 
 const originalReplaceState = history.replaceState;
-history.replaceState = function (...args) {
+history.replaceState = function (
+  this: History,
+  ...args: Parameters<History["replaceState"]>
+) {
   originalReplaceState.apply(this, args);
   handleNavigation();
 };

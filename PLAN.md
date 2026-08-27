@@ -80,15 +80,23 @@ We build incrementally — one small, testable feature per step. Each step ends 
 load into Chrome and click on. We will NOT move to the next step until the current one works for you.
 
 ### Step 0 — Scaffolding
-- `extension/manifest.json` (MV3), icons (placeholder), folder structure (`extension/content/` for
-  the injected script, UI, and styles; `extension/background/` for the service worker), empty
-  background service worker, empty content script matched to `linkedin.com/*` (needed on all pages,
-  not just `/in/*`, since the floating button + right panel should be available site-wide). A
-  top-level `docs/` folder for the per-feature docs described above.
-- Load unpacked into Chrome (pointing at the `extension/` folder), confirm it appears with no errors
-  in `chrome://extensions`.
+- `src/manifest.json` (MV3), icons (placeholder), folder structure (`src/content/` for the injected
+  script, UI, and styles; `src/background/` for the service worker), empty background service worker,
+  empty content script matched to `linkedin.com/*` (needed on all pages, not just `/in/*`, since the
+  floating button + right panel should be available site-wide). A top-level `docs/` folder for the
+  per-feature docs described above.
+- Load unpacked into Chrome (pointing at the built `extension/` folder — see **Development** below),
+  confirm it appears with no errors in `chrome://extensions`.
 - **Outcome**: extension installs, no functionality yet. No doc file needed — nothing user-facing was
   built yet.
+
+### Development
+
+The extension is written in **TypeScript**, under `src/`. `npm run build` compiles it (via esbuild)
+into a plain-JS `extension/` folder — that's what you load unpacked in Chrome, and it's gitignored
+since it's generated output, not source. `npm run watch` rebuilds automatically as you edit; `npm run
+typecheck` runs TypeScript's checker without emitting files. Static assets (`manifest.json`, icons,
+CSS) live in `src/` too and are copied across unchanged on each build.
 
 ### Step 1 — Inject the "List" button on profile pages
 - Content script detects profile pages, uses `MutationObserver` (scoped to the action-button

@@ -10,7 +10,8 @@ the captured data to the browser's developer console, as a checkpoint before we 
 
 ## Technical notes
 
-- **Files**: `extension/content/content.js` (logic), `extension/content/content.css` (button style).
+- **Files**: `src/content/content.ts` (logic), `src/content/content.css` (button style) — compiled to
+  `extension/content/` by `npm run build` (see `docs/typescript-build.md`).
 - **Profile-page detection**: regex match on `window.location.href` against
   `^https://www.linkedin.com/in/[^/?#]+`.
 - **SPA navigation handling**: LinkedIn is a single-page app — going from one profile to another
